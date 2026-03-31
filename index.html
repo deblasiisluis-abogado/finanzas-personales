@@ -482,8 +482,9 @@ textarea{resize:vertical;min-height:70px;}
 <div class="modal-wrap" id="m-inversion">
   <div class="modal">
     <div class="modal-title">Nueva Inversión</div>
+    <p style="font-size:13px;color:var(--text-sub);margin-bottom:18px;margin-top:-8px">Registrá cada posición con su valor actual. Actualizalo una vez por mes para mantener el portfolio al día.</p>
     <div class="form-grid">
-      <div class="fg"><label>Nombre</label><input id="inv-nombre" placeholder="Ej: GGAL, S&P500, Plazo fijo Banco..."></div>
+      <div class="fg full"><label>Nombre de la inversión</label><input id="inv-nombre" placeholder="Ej: Acciones USA (IOL), Plazo fijo Galicia, Bitcoin..."></div>
       <div class="fg"><label>Tipo</label>
         <select id="inv-tipo">
           <option value="Acción argentina">🇦🇷 Acción argentina</option>
@@ -496,21 +497,15 @@ textarea{resize:vertical;min-height:70px;}
           <option value="Otro activo">Otro activo</option>
         </select>
       </div>
-      <div class="fg"><label>Fecha de compra</label><input type="date" id="inv-fecha"></div>
       <div class="fg"><label>Moneda</label>
         <select id="inv-moneda">
           <option value="ARS">🇦🇷 Pesos (ARS)</option>
           <option value="USD">🇺🇸 Dólares (USD)</option>
         </select>
       </div>
-      <div class="fg"><label>Cantidad (unidades / acciones)</label><input type="number" id="inv-cantidad" placeholder="Ej: 10" step="any" oninput="calcInvTotales()"></div>
-      <div class="fg"><label>Precio de compra por unidad</label><input type="number" id="inv-precio-compra" placeholder="Ej: 1400" step="any" oninput="calcInvTotales()"></div>
-      <div class="fg"><label>Precio actual por unidad</label><input type="number" id="inv-precio-actual" placeholder="Ej: 1600" step="any" oninput="calcInvTotales()"></div>
-      <div class="fg" id="inv-totales-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;justify-content:center">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-sub);margin-bottom:4px">Vista previa</div>
-        <div id="inv-preview-text" style="font-size:13px;color:var(--text-sub)">Completá cantidad y precios</div>
-      </div>
-      <div class="fg full"><label>Notas (broker, vencimiento, etc.)</label><input id="inv-notas" placeholder="Ej: IOL, vence 15/04, BYMA..."></div>
+      <div class="fg"><label>Lo que invertí originalmente</label><input type="number" id="inv-monto-input" placeholder="Capital inicial"></div>
+      <div class="fg"><label>Valor actual (hoy)</label><input type="number" id="inv-actual-input" placeholder="Lo que vale hoy"></div>
+      <div class="fg full"><label>Plataforma / Notas (opcional)</label><input id="inv-notas" placeholder="Ej: IOL, Balanz, Bull Market, vence 15/04..."></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeM('m-inversion')">Cancelar</button>
@@ -798,46 +793,25 @@ function renderGastos(){
 // ══════════════════════════════════════════
 // INVERSIONES
 // ══════════════════════════════════════════
-function calcInvTotales(){
-  const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
-  const pCompra=parseFloat(document.getElementById('inv-precio-compra').value)||0;
-  const pActual=parseFloat(document.getElementById('inv-precio-actual').value)||0;
-  const moneda=document.getElementById('inv-moneda').value;
-  const el=document.getElementById('inv-preview-text');
-  if(!el)return;
-  if(!cant||!pCompra){ el.textContent='Completá cantidad y precios'; el.style.color='var(--text-sub)'; return; }
-  const totalInv=cant*pCompra;
-  const totalAct=pActual>0?cant*pActual:totalInv;
-  const gan=totalAct-totalInv;
-  const color=gan>=0?'var(--green)':'var(--red)';
-  el.innerHTML=`Invertido: <b>${$m(totalInv,moneda)}</b> · Actual: <b>${$m(totalAct,moneda)}</b> · <span style="color:${color};font-weight:700">${gan>=0?'+':''}${$m(gan,moneda)}</span>`;
-}
 
 function saveInversion(){
   const nombre=document.getElementById('inv-nombre').value.trim();
-  const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
-  const pCompra=parseFloat(document.getElementById('inv-precio-compra').value)||0;
-  const pActual=parseFloat(document.getElementById('inv-precio-actual').value)||0;
+  const invertido=parseFloat(document.getElementById('inv-monto-input').value)||0;
+  const actual=parseFloat(document.getElementById('inv-actual-input').value)||0;
   if(!nombre){alert('Ingresá el nombre de la inversión.');return;}
-  if(!cant||cant<=0){alert('Ingresá la cantidad de unidades/acciones.');return;}
-  if(!pCompra||pCompra<=0){alert('Ingresá el precio de compra por unidad.');return;}
-  const invertido=cant*pCompra;
-  const actual=pActual>0?cant*pActual:invertido;
+  if(!invertido&&!actual){alert('Ingresá al menos el valor actual de la inversión.');return;}
   S.inversiones.push({
-    id:uid(),nombre,
+    id:uid(),
+    nombre,
     tipo:document.getElementById('inv-tipo').value,
-    fecha:document.getElementById('inv-fecha').value,
     moneda:document.getElementById('inv-moneda').value,
-    cantidad:cant,
-    precioCompra:pCompra,
-    precioActual:pActual||pCompra,
-    invertido,
-    actual,
-    notas:document.getElementById('inv-notas').value
+    invertido:invertido||actual,
+    actual:actual||invertido,
+    notas:document.getElementById('inv-notas').value,
+    fechaActualizacion:new Date().toISOString().split('T')[0]
   });
   save();closeM('m-inversion');
-  clr(['inv-nombre','inv-cantidad','inv-precio-compra','inv-precio-actual','inv-notas']);
-  document.getElementById('inv-preview-text').textContent='Completá cantidad y precios';
+  clr(['inv-nombre','inv-monto-input','inv-actual-input','inv-notas']);
   renderAll();
 }
 
@@ -929,28 +903,12 @@ function renderInversiones(){
 function editInversion(id){
   const inv=S.inversiones.find(x=>x.id===id);
   if(!inv)return;
-  const cant=inv.cantidad||1;
-  const precioActStr=inv.precioActual?`Precio actual por unidad: ${$m(inv.precioActual,inv.moneda)}`:`Valor actual total: ${$m(inv.actual,inv.moneda)}`;
-  const msg=inv.cantidad
-    ?`Actualizar "${inv.nombre}"
-Cantidad: ${cant} unidades
-${precioActStr}
-
-Ingresá el NUEVO PRECIO por unidad:`
-    :`Actualizar "${inv.nombre}"
-Valor actual: ${$m(inv.actual,inv.moneda)}
-
-Ingresá el nuevo valor actual total:`;
-  const newVal=prompt(msg);
+  const newVal=prompt(`Actualizar "${inv.nombre}"\nValor actual: ${$m(inv.actual,inv.moneda)}\n\nIngresá el nuevo valor actual:`);
   if(!newVal)return;
-  const val=parseFloat(newVal);
+  const val=parseFloat(newVal.replace(',','.'));
   if(isNaN(val)||val<0){alert('Valor inválido.');return;}
-  if(inv.cantidad){
-    inv.precioActual=val;
-    inv.actual=inv.cantidad*val;
-  } else {
-    inv.actual=val;
-  }
+  inv.actual=val;
+  inv.fechaActualizacion=new Date().toISOString().split('T')[0];
   save();renderAll();
 }
 
