@@ -220,7 +220,7 @@ textarea{resize:vertical;min-height:70px;}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-name">Finanzas<br>Personales</div>
-    <div class="logo-sub">Dr. Luis de Blasiis</div>
+    <div class="logo-sub">Luis de Blasiis</div>
   </div>
   <nav>
     <div class="nav-label">Principal</div>
@@ -248,7 +248,7 @@ textarea{resize:vertical;min-height:70px;}
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div class="ph">
-    <div><div class="ph-title">Buen día, Doctor</div><div class="ph-sub" id="hoy-label"></div></div>
+    <div><div class="ph-title">Finanzas Personales</div><div class="ph-sub" id="hoy-label"></div></div>
     <button class="btn btn-ghost btn-sm" onclick="goTo('balance',document.querySelector('[onclick*=balance]'))">Ver balance →</button>
   </div>
   <div class="stats">
@@ -1057,7 +1057,7 @@ function exportBalance(){
     const wb=XLSX.utils.book_new();
     // Resumen
     const res=[
-      ['BALANCE MENSUAL — Dr. Luis de Blasiis'],['Período:',mesLabel],['Generado:',fmt2(new Date().toISOString().split('T')[0])],[],
+      ['BALANCE MENSUAL — Luis de Blasiis'],['Período:',mesLabel],['Generado:',fmt2(new Date().toISOString().split('T')[0])],[],
       ['RESUMEN',''],['Total ingresos',totalIng],['Total gastos',totalGas],['RESULTADO (AHORRO)',totalIng-totalGas],[],
       ['Gastos innecesarios',inn],['Gastos esenciales',totalGas-inn],
     ];
