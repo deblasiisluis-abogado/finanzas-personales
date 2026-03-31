@@ -503,8 +503,13 @@ textarea{resize:vertical;min-height:70px;}
           <option value="USD">🇺🇸 Dólares (USD)</option>
         </select>
       </div>
-      <div class="fg"><label>Monto invertido</label><input type="number" id="inv-monto-input" placeholder="0"></div>
-      <div class="fg"><label>Valor actual</label><input type="number" id="inv-actual-input" placeholder="0"></div>
+      <div class="fg"><label>Cantidad (unidades / acciones)</label><input type="number" id="inv-cantidad" placeholder="Ej: 10" step="any" oninput="calcInvTotales()"></div>
+      <div class="fg"><label>Precio de compra por unidad</label><input type="number" id="inv-precio-compra" placeholder="Ej: 1400" step="any" oninput="calcInvTotales()"></div>
+      <div class="fg"><label>Precio actual por unidad</label><input type="number" id="inv-precio-actual" placeholder="Ej: 1600" step="any" oninput="calcInvTotales()"></div>
+      <div class="fg" id="inv-totales-preview" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;justify-content:center">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-sub);margin-bottom:4px">Vista previa</div>
+        <div id="inv-preview-text" style="font-size:13px;color:var(--text-sub)">Completá cantidad y precios</div>
+      </div>
       <div class="fg full"><label>Notas (broker, vencimiento, etc.)</label><input id="inv-notas" placeholder="Ej: IOL, vence 15/04, BYMA..."></div>
     </div>
     <div class="modal-actions">
@@ -562,6 +567,14 @@ function ensureArrays(){
   S.gastos=S.gastos||[];
   S.inversiones=S.inversiones||[];
   S.metas=S.metas||[];
+  // Migrate old inversiones without cantidad/precioCompra
+  S.inversiones.forEach(inv=>{
+    if(!inv.cantidad) inv.cantidad=1;
+    if(!inv.precioCompra) inv.precioCompra=inv.invertido||0;
+    if(!inv.precioActual) inv.precioActual=inv.actual||inv.invertido||0;
+    inv.invertido=inv.cantidad*inv.precioCompra;
+    inv.actual=inv.cantidad*inv.precioActual;
+  });
 }
 
 async function load(){
@@ -785,14 +798,59 @@ function renderGastos(){
 // ══════════════════════════════════════════
 // INVERSIONES
 // ══════════════════════════════════════════
+function calcInvTotales(){
+  const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
+  const pCompra=parseFloat(document.getElementById('inv-precio-compra').value)||0;
+  const pActual=parseFloat(document.getElementById('inv-precio-actual').value)||0;
+  const moneda=document.getElementById('inv-moneda').value;
+  const el=document.getElementById('inv-preview-text');
+  if(!el)return;
+  if(!cant||!pCompra){ el.textContent='Completá cantidad y precios'; el.style.color='var(--text-sub)'; return; }
+  const totalInv=cant*pCompra;
+  const totalAct=pActual>0?cant*pActual:totalInv;
+  const gan=totalAct-totalInv;
+  const color=gan>=0?'var(--green)':'var(--red)';
+  el.innerHTML=`Invertido: <b>${$m(totalInv,moneda)}</b> · Actual: <b>${$m(totalAct,moneda)}</b> · <span style="color:${color};font-weight:700">${gan>=0?'+':''}${$m(gan,moneda)}</span>`;
+}
+
 function saveInversion(){
   const nombre=document.getElementById('inv-nombre').value.trim();
-  const invertido=parseFloat(document.getElementById('inv-monto-input').value)||0;
-  const actual=parseFloat(document.getElementById('inv-actual-input').value)||0;
-  if(!nombre){alert('Ingresá el nombre.');return;}
-  if(!invertido){alert('Ingresá el monto invertido.');return;}
-  S.inversiones.push({id:uid(),nombre,tipo:document.getElementById('inv-tipo').value,fecha:document.getElementById('inv-fecha').value,moneda:document.getElementById('inv-moneda').value,invertido,actual:actual||invertido,notas:document.getElementById('inv-notas').value});
-  save();closeM('m-inversion');clr(['inv-nombre','inv-monto-input','inv-actual-input','inv-notas']);renderAll();
+  const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
+  const pCompra=parseFloat(document.getElementById('inv-precio-compra').value)||0;
+  const pActual=parseFloat(document.getElementById('inv-precio-actual').value)||0;
+  if(!nombre){alert('Ingresá el nombre de la inversión.');return;}
+  if(!cant||cant<=0){alert('Ingresá la cantidad de unidades/acciones.');return;}
+  if(!pCompra||pCompra<=0){alert('Ingresá el precio de compra por unidad.');return;}
+  const invertido=cant*pCompra;
+  const actual=pActual>0?cant*pActual:invertido;
+  S.inversiones.push({
+    id:uid(),nombre,
+    tipo:document.getElementById('inv-tipo').value,
+    fecha:document.getElementById('inv-fecha').value,
+    moneda:document.getElementById('inv-moneda').value,
+    cantidad:cant,
+    precioCompra:pCompra,
+    precioActual:pActual||pCompra,
+    invertido,
+    actual,
+    notas:document.getElementById('inv-notas').value
+  });
+  save();closeM('m-inversion');
+  clr(['inv-nombre','inv-cantidad','inv-precio-compra','inv-precio-actual','inv-notas']);
+  document.getElementById('inv-preview-text').textContent='Completá cantidad y precios';
+  renderAll();
+}
+
+function actualizarPrecioTodos(nombre){
+  const lotes=S.inversiones.filter(x=>x.nombre.toLowerCase()===nombre.toLowerCase());
+  if(!lotes.length)return;
+  const precioActual=lotes[0].precioActual||lotes[0].actual||0;
+  const newPrice=prompt(`Actualizar precio actual de "${nombre}"\nPrecio actual: ${$m(precioActual,lotes[0].moneda)} por unidad\n\n¿Nuevo precio por unidad? (Se actualiza en los ${lotes.length} lote${lotes.length!==1?'s':''} de ${nombre})`);
+  if(!newPrice)return;
+  const val=parseFloat(newPrice);
+  if(isNaN(val)||val<0){alert('Precio inválido.');return;}
+  lotes.forEach(x=>{x.precioActual=val;x.actual=(x.cantidad||1)*val;});
+  save();renderAll();
 }
 
 function renderInversiones(){
@@ -813,23 +871,57 @@ function renderInversiones(){
   const lista=document.getElementById('inv-lista');
   if(!lista)return;
   if(!S.inversiones.length){lista.innerHTML='<div class="empty"><div class="empty-icon">📈</div>Sin inversiones registradas.</div>';return;}
-  lista.innerHTML=S.inversiones.map(inv=>{
-    const gan=inv.actual-inv.invertido;
-    const r=inv.invertido>0?((gan/inv.invertido)*100).toFixed(1):0;
+
+  // Agrupar por nombre del activo
+  const grupos={};
+  S.inversiones.forEach(inv=>{
+    const k=inv.nombre.toLowerCase();
+    if(!grupos[k])grupos[k]={nombre:inv.nombre,tipo:inv.tipo,moneda:inv.moneda,lotes:[],totalInv:0,totalAct:0};
+    grupos[k].lotes.push(inv);
+    grupos[k].totalInv+=inv.invertido||0;
+    grupos[k].totalAct+=inv.actual||0;
+  });
+
+  lista.innerHTML=Object.values(grupos).map(g=>{
+    const gan=g.totalAct-g.totalInv;
+    const r=g.totalInv>0?((gan/g.totalInv)*100).toFixed(1):0;
     const color=gan>=0?'var(--green)':'var(--red)';
+    // Detalle de lotes si hay más de uno
+    const detalleLotes=g.lotes.length>1?`
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px">Detalle de lotes</div>
+        ${g.lotes.map((inv,i)=>{
+          const lg=inv.actual-inv.invertido;
+          const lc=lg>=0?'var(--green)':'var(--red)';
+          return`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;background:var(--surface2);border-radius:6px;margin-bottom:6px;font-size:12.5px">
+            <b style="color:var(--text-sub)">Lote ${i+1}</b>
+            <span>${fmt(inv.fecha)}</span>
+            <span><b>${inv.cantidad}</b> ud. × <b>${$m(inv.precioCompra,inv.moneda)}</b></span>
+            <span style="color:var(--text-sub)">→ Hoy ${$m(inv.precioActual||inv.actual/inv.cantidad,inv.moneda)}/ud.</span>
+            <span style="color:${lc};font-weight:700;margin-left:auto">${lg>=0?'+':''}${$m(lg,inv.moneda)}</span>
+            <button class="btn btn-danger btn-xs" onclick="delItem('inversiones','${inv.id}')">🗑</button>
+          </div>`;
+        }).join('')}
+      </div>`:'';
     return`<div class="inv-card">
       <div class="inv-header">
-        <div><div class="inv-name">${inv.nombre}</div><div class="inv-type">${inv.tipo}${inv.notas?' · '+inv.notas:''}</div></div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost btn-xs" onclick="editInversion('${inv.id}')">✏️ Actualizar</button>
-          <button class="btn btn-danger btn-xs" onclick="delItem('inversiones','${inv.id}')">🗑</button>
+        <div>
+          <div class="inv-name">${g.nombre}
+            ${g.lotes.length>1?`<span style="font-size:12px;color:var(--text-dim);font-weight:400;margin-left:6px">${g.lotes.length} lotes</span>`:''}
+          </div>
+          <div class="inv-type">${g.tipo}${g.lotes[0].notas?' · '+g.lotes[0].notas:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-xs" onclick="actualizarPrecioTodos('${g.nombre}')">💹 Actualizar precio</button>
+          ${g.lotes.length===1?`<button class="btn btn-danger btn-xs" onclick="delItem('inversiones','${g.lotes[0].id}')">🗑</button>`:''}
         </div>
       </div>
       <div class="inv-nums">
-        <div><div class="inv-num-label">Invertido</div><div class="inv-num-val" style="color:var(--text)">${$m(inv.invertido,inv.moneda)}</div></div>
-        <div><div class="inv-num-label">Valor actual</div><div class="inv-num-val" style="color:var(--accent)">${$m(inv.actual,inv.moneda)}</div></div>
-        <div><div class="inv-num-label">Ganancia / Pérdida</div><div class="inv-num-val" style="color:${color}">${(gan>=0?'+':'')+$m(gan,inv.moneda)} (${(r>=0?'+':'')+r}%)</div></div>
+        <div><div class="inv-num-label">Total invertido</div><div class="inv-num-val" style="color:var(--text)">${$m(g.totalInv,g.moneda)}</div></div>
+        <div><div class="inv-num-label">Valor actual total</div><div class="inv-num-val" style="color:var(--accent)">${$m(g.totalAct,g.moneda)}</div></div>
+        <div><div class="inv-num-label">Ganancia / Pérdida</div><div class="inv-num-val" style="color:${color}">${(gan>=0?'+':'')+$m(gan,g.moneda)} <span style="font-size:14px">(${(r>=0?'+':'')+r}%)</span></div></div>
       </div>
+      ${detalleLotes}
     </div>`;
   }).join('');
 }
@@ -837,11 +929,28 @@ function renderInversiones(){
 function editInversion(id){
   const inv=S.inversiones.find(x=>x.id===id);
   if(!inv)return;
-  const newVal=prompt(`Actualizar valor actual de "${inv.nombre}"\nValor actual: ${$m(inv.actual,inv.moneda)}\n\nIngresá el nuevo valor actual:`);
+  const cant=inv.cantidad||1;
+  const precioActStr=inv.precioActual?`Precio actual por unidad: ${$m(inv.precioActual,inv.moneda)}`:`Valor actual total: ${$m(inv.actual,inv.moneda)}`;
+  const msg=inv.cantidad
+    ?`Actualizar "${inv.nombre}"
+Cantidad: ${cant} unidades
+${precioActStr}
+
+Ingresá el NUEVO PRECIO por unidad:`
+    :`Actualizar "${inv.nombre}"
+Valor actual: ${$m(inv.actual,inv.moneda)}
+
+Ingresá el nuevo valor actual total:`;
+  const newVal=prompt(msg);
   if(!newVal)return;
   const val=parseFloat(newVal);
   if(isNaN(val)||val<0){alert('Valor inválido.');return;}
-  inv.actual=val;
+  if(inv.cantidad){
+    inv.precioActual=val;
+    inv.actual=inv.cantidad*val;
+  } else {
+    inv.actual=val;
+  }
   save();renderAll();
 }
 
