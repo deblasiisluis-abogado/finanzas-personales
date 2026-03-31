@@ -333,7 +333,10 @@ textarea{resize:vertical;min-height:70px;}
 <div class="page" id="page-inversiones">
   <div class="ph">
     <div><div class="ph-title">Inversiones</div><div class="ph-sub">Portfolio y rendimiento</div></div>
-    <button class="btn btn-accent" onclick="openM('m-inversion')">＋ Nueva inversión</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-accent" onclick="openM('m-inversion')">＋ Nueva inversión</button>
+      <button class="btn btn-ghost" onclick="abrirVenta()" style="border-color:var(--orange);color:var(--orange)">📤 Registrar venta</button>
+    </div>
   </div>
   <div class="stats">
     <div class="scard purple"><div class="sc-label">Total invertido</div><div class="sc-val" id="inv-invertido">$0</div></div>
@@ -342,6 +345,19 @@ textarea{resize:vertical;min-height:70px;}
     <div class="scard teal"><div class="sc-label">Rentabilidad total</div><div class="sc-val" id="inv-rent">0%</div></div>
   </div>
   <div id="inv-lista"><div class="empty"><div class="empty-icon">📈</div>Sin inversiones registradas</div></div>
+
+  <!-- Historial de operaciones -->
+  <div class="tcard" style="margin-top:20px">
+    <div class="tcard-header">
+      <div class="tcard-title">📋 Historial de ventas</div>
+      <span id="ventas-total" style="font-size:13px;color:var(--green);font-weight:700"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>Fecha</th><th>Inversión</th><th>Tipo</th><th>Cantidad vendida</th><th>Precio venta</th><th>Total cobrado</th><th>Ganancia/Pérdida</th></tr></thead>
+      <tbody id="t-historial-ventas"></tbody></table>
+      <tbody id="t-ventas"></tbody></table>
+    </div>
+  </div>
 </div>
 
 <!-- BALANCE -->
@@ -480,17 +496,16 @@ textarea{resize:vertical;min-height:70px;}
 
 <!-- Inversión -->
 <div class="modal-wrap" id="m-inversion">
-  <div class="modal">
+  <div class="modal" style="max-width:600px">
     <div class="modal-title">Nueva Inversión</div>
-    <p style="font-size:13px;color:var(--text-sub);margin-bottom:18px;margin-top:-8px">Registrá cada posición con su valor actual. Actualizalo una vez por mes para mantener el portfolio al día.</p>
     <div class="form-grid">
-      <div class="fg full"><label>Nombre de la inversión</label><input id="inv-nombre" placeholder="Ej: Acciones USA (IOL), Plazo fijo Galicia, Bitcoin..."></div>
+      <div class="fg full"><label>Nombre / Ticker</label><input id="inv-nombre" placeholder="Ej: AAPL, GGAL, FCI Balanz Renta, Bitcoin..."></div>
       <div class="fg"><label>Tipo</label>
-        <select id="inv-tipo">
+        <select id="inv-tipo" onchange="toggleInvMode()">
           <option value="Acción argentina">🇦🇷 Acción argentina</option>
           <option value="Acción extranjera">🌎 Acción extranjera / ETF</option>
-          <option value="Plazo fijo">🏦 Plazo fijo</option>
           <option value="FCI">📊 FCI (Fondo común inversión)</option>
+          <option value="Plazo fijo">🏦 Plazo fijo</option>
           <option value="Dólares">💵 Dólares (ahorro)</option>
           <option value="Criptomoneda">🔗 Criptomoneda</option>
           <option value="Propiedad">🏠 Propiedad / inmueble</option>
@@ -503,13 +518,63 @@ textarea{resize:vertical;min-height:70px;}
           <option value="USD">🇺🇸 Dólares (USD)</option>
         </select>
       </div>
-      <div class="fg"><label>Lo que invertí originalmente</label><input type="number" id="inv-monto-input" placeholder="Capital inicial"></div>
-      <div class="fg"><label>Valor actual (hoy)</label><input type="number" id="inv-actual-input" placeholder="Lo que vale hoy"></div>
-      <div class="fg full"><label>Plataforma / Notas (opcional)</label><input id="inv-notas" placeholder="Ej: IOL, Balanz, Bull Market, vence 15/04..."></div>
+      <div class="fg"><label>Fecha</label><input type="date" id="inv-fecha"></div>
+      <div class="fg"><label>Plataforma (opcional)</label><input id="inv-notas" placeholder="IOL, Balanz, Bull Market..."></div>
     </div>
-    <div class="modal-actions">
+
+    <!-- Modo UNIDADES: acciones y FCI -->
+    <div id="inv-mode-unidades" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700;margin-bottom:12px">📊 Por unidades / cuotapartes</div>
+      <div class="form-grid">
+        <div class="fg"><label>Cantidad comprada</label><input type="number" id="inv-cantidad" placeholder="Ej: 10" step="any" oninput="previewInv()"></div>
+        <div class="fg"><label>Precio de compra por unidad</label><input type="number" id="inv-pcompra" placeholder="Ej: 1.400" step="any" oninput="previewInv()"></div>
+        <div class="fg"><label>Precio actual por unidad</label><input type="number" id="inv-pactual" placeholder="Ej: 1.650" step="any" oninput="previewInv()"></div>
+        <div class="fg" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;text-transform:uppercase;color:var(--text-sub);margin-bottom:4px">Vista previa</div>
+          <div id="inv-preview" style="font-size:12.5px;color:var(--text-sub)">Completá los campos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modo TOTAL: plazo fijo, dólares, propiedad, etc -->
+    <div id="inv-mode-total" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:none">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700;margin-bottom:12px">💰 Por valor total</div>
+      <div class="form-grid">
+        <div class="fg"><label>Capital invertido</label><input type="number" id="inv-capital" placeholder="Lo que puse de mi bolsillo"></div>
+        <div class="fg"><label>Valor actual total</label><input type="number" id="inv-valorhoy" placeholder="Lo que vale hoy"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:20px">
       <button class="btn btn-ghost" onclick="closeM('m-inversion')">Cancelar</button>
       <button class="btn btn-accent" onclick="saveInversion()">Guardar inversión</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Modal Venta -->
+<div class="modal-wrap" id="m-venta">
+  <div class="modal">
+    <div class="modal-title">📤 Registrar Venta</div>
+    <div class="form-grid">
+      <div class="fg"><label>Fecha de venta</label><input type="date" id="vt-fecha"></div>
+      <div class="fg"><label>Inversión</label>
+        <select id="vt-inv" onchange="updateVentaInfo()"><option value="">Seleccionar...</option></select>
+      </div>
+      <div class="fg full" id="vt-info-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:none">
+        <div id="vt-info-text" style="font-size:13px;color:var(--text-sub)"></div>
+      </div>
+      <div class="fg"><label>Cantidad vendida</label><input type="number" id="vt-cantidad" placeholder="0" step="any" oninput="previewVenta()"></div>
+      <div class="fg"><label>Precio de venta por unidad</label><input type="number" id="vt-precio" placeholder="0" step="any" oninput="previewVenta()"></div>
+      <div class="fg full" id="vt-preview-box" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:none">
+        <div id="vt-preview-text" style="font-size:13px"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeM('m-venta')">Cancelar</button>
+      <button class="btn btn-accent" onclick="saveVenta()">Confirmar venta</button>
     </div>
   </div>
 </div>
@@ -555,13 +620,15 @@ function showSync(msg,color){
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let S={ingresos:[],gastos:[],inversiones:[],metas:[]};
+let S={ingresos:[],gastos:[],inversiones:[],metas:[],ventas:[]};
 
 function ensureArrays(){
   S.ingresos=S.ingresos||[];
   S.gastos=S.gastos||[];
   S.inversiones=S.inversiones||[];
   S.metas=S.metas||[];
+  S.ventas=S.ventas||[];
+  S.ventas=S.ventas||[];
   // Migrate old inversiones without cantidad/precioCompra
   S.inversiones.forEach(inv=>{
     if(!inv.cantidad) inv.cantidad=1;
@@ -794,26 +861,63 @@ function renderGastos(){
 // INVERSIONES
 // ══════════════════════════════════════════
 
+function previewInv(){
+  const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
+  const precio=parseFloat(document.getElementById('inv-precio-unit').value)||0;
+  const el=document.getElementById('inv-preview-val');
+  if(!el)return;
+  const moneda=document.getElementById('inv-moneda').value;
+  el.textContent=cant&&precio?$m(cant*precio,moneda):'—';
+}
+
+function toggleInvMode(){
+  const tipo=document.getElementById('inv-tipo').value;
+  const porUnidades=['Acción argentina','Acción extranjera','FCI','Criptomoneda'];
+  const u=porUnidades.includes(tipo);
+  document.getElementById('inv-mode-unidades').style.display=u?'block':'none';
+  document.getElementById('inv-mode-total').style.display=u?'none':'block';
+}
+
+function previewInv(){
+  const cant=parseFloat(document.getElementById('inv-cantidad')?.value)||0;
+  const pc=parseFloat(document.getElementById('inv-pcompra')?.value)||0;
+  const pa=parseFloat(document.getElementById('inv-pactual')?.value)||0;
+  const el=document.getElementById('inv-preview');
+  if(!el)return;
+  if(!cant||!pc){el.textContent='Completá los campos';el.style.color='var(--text-sub)';return;}
+  const mon=document.getElementById('inv-moneda').value;
+  const inv=cant*pc; const act=pa>0?cant*pa:inv; const gan=act-inv;
+  el.innerHTML=`Invertido: <b>${$m(inv,mon)}</b> · Actual: <b style="color:var(--accent)">${$m(act,mon)}</b>${gan!==0?` · <b style="color:${gan>0?'var(--green)':'var(--red)'}">${gan>0?'+':''}${$m(gan,mon)}</b>`:''}`;
+}
+
 function saveInversion(){
   const nombre=document.getElementById('inv-nombre').value.trim();
-  const invertido=parseFloat(document.getElementById('inv-monto-input').value)||0;
-  const actual=parseFloat(document.getElementById('inv-actual-input').value)||0;
+  const tipo=document.getElementById('inv-tipo').value;
   if(!nombre){alert('Ingresá el nombre de la inversión.');return;}
-  if(!invertido&&!actual){alert('Ingresá al menos el valor actual de la inversión.');return;}
-  S.inversiones.push({
-    id:uid(),
-    nombre,
-    tipo:document.getElementById('inv-tipo').value,
-    moneda:document.getElementById('inv-moneda').value,
-    invertido:invertido||actual,
-    actual:actual||invertido,
-    notas:document.getElementById('inv-notas').value,
-    fechaActualizacion:new Date().toISOString().split('T')[0]
-  });
-  save();closeM('m-inversion');
-  clr(['inv-nombre','inv-monto-input','inv-actual-input','inv-notas']);
+  const porUnidades=['Acción argentina','Acción extranjera','FCI','Criptomoneda'];
+  const isUnidades=porUnidades.includes(tipo);
+  let inv={id:uid(),nombre,tipo,moneda:document.getElementById('inv-moneda').value,fecha:document.getElementById('inv-fecha').value,notas:document.getElementById('inv-notas').value,fechaActualizacion:new Date().toISOString().split('T')[0],modo:isUnidades?'unidades':'total'};
+  if(isUnidades){
+    const cant=parseFloat(document.getElementById('inv-cantidad').value)||0;
+    const pc=parseFloat(document.getElementById('inv-pcompra').value)||0;
+    const pa=parseFloat(document.getElementById('inv-pactual').value)||0;
+    if(!cant||cant<=0){alert('Ingresá la cantidad de unidades.');return;}
+    if(!pc||pc<=0){alert('Ingresá el precio de compra.');return;}
+    inv.cantidad=cant; inv.precioCompra=pc; inv.precioActual=pa||pc;
+    inv.invertido=cant*pc; inv.actual=cant*(pa||pc);
+  } else {
+    const capital=parseFloat(document.getElementById('inv-capital').value)||0;
+    const valorhoy=parseFloat(document.getElementById('inv-valorhoy').value)||0;
+    if(!capital&&!valorhoy){alert('Ingresá al menos el valor actual.');return;}
+    inv.invertido=capital||valorhoy; inv.actual=valorhoy||capital;
+  }
+  S.inversiones.push(inv);
+  save(); closeM('m-inversion');
+  clr(['inv-nombre','inv-cantidad','inv-pcompra','inv-pactual','inv-capital','inv-valorhoy','inv-notas']);
+  const prev=document.getElementById('inv-preview');if(prev)prev.textContent='Completá los campos';
   renderAll();
 }
+
 
 function actualizarPrecioTodos(nombre){
   const lotes=S.inversiones.filter(x=>x.nombre.toLowerCase()===nombre.toLowerCase());
@@ -844,7 +948,10 @@ function renderInversiones(){
   if(rentEl)rentEl.style.color=ganancia>=0?'var(--green)':'var(--red)';
   const lista=document.getElementById('inv-lista');
   if(!lista)return;
-  if(!S.inversiones.length){lista.innerHTML='<div class="empty"><div class="empty-icon">📈</div>Sin inversiones registradas.</div>';return;}
+  if(!S.inversiones.length){lista.innerHTML='<div class="empty"><div class="empty-icon">📈</div>Sin inversiones registradas. Las que vendiste aparecen en el historial abajo.</div>';}
+  // Render ventas historial
+  renderHistorialVentas();
+  if(!S.inversiones.length) return;
 
   // Agrupar por nombre del activo
   const grupos={};
@@ -900,21 +1007,144 @@ function renderInversiones(){
   }).join('');
 }
 
+
+function abrirVenta(invId){
+  // Populate select with unidades-mode investments
+  const sel=document.getElementById('vt-inv');
+  sel.innerHTML='<option value="">Seleccionar...</option>';
+  S.inversiones.filter(i=>i.modo==='unidades'||i.cantidad).forEach(i=>{
+    sel.innerHTML+=`<option value="${i.id}">${i.nombre} (${i.cantidad} u. · ${$m(i.precioActual,i.moneda)}/u)</option>`;
+  });
+  if(invId) sel.value=invId;
+  document.getElementById('vt-info-box').style.display='none';
+  document.getElementById('vt-preview-box').style.display='none';
+  clr(['vt-cantidad','vt-precio']);
+  openM('m-venta');
+  if(invId) updateVentaInfo();
+}
+
+function updateVentaInfo(){
+  const invId=document.getElementById('vt-inv').value;
+  const box=document.getElementById('vt-info-box');
+  if(!invId){box.style.display='none';return;}
+  const inv=S.inversiones.find(x=>x.id===invId);
+  if(!inv){box.style.display='none';return;}
+  box.style.display='block';
+  document.getElementById('vt-info-text').innerHTML=
+    `<b>${inv.nombre}</b> · ${inv.tipo}<br>
+    Tenés: <b>${inv.cantidad} unidades</b> · Precio compra: <b>${$m(inv.precioCompra,inv.moneda)}/u</b> · Precio actual: <b style="color:var(--accent)">${$m(inv.precioActual,inv.moneda)}/u</b>`;
+  // Preload current price
+  const precioEl=document.getElementById('vt-precio');
+  if(precioEl&&!precioEl.value) precioEl.value=inv.precioActual||'';
+  previewVenta();
+}
+
+function previewVenta(){
+  const invId=document.getElementById('vt-inv').value;
+  const cant=parseFloat(document.getElementById('vt-cantidad').value)||0;
+  const precio=parseFloat(document.getElementById('vt-precio').value)||0;
+  const box=document.getElementById('vt-preview-box');
+  if(!invId||!cant||!precio){box.style.display='none';return;}
+  const inv=S.inversiones.find(x=>x.id===invId);
+  if(!inv){box.style.display='none';return;}
+  const total=cant*precio;
+  const ganancia=(precio-inv.precioCompra)*cant;
+  const color=ganancia>=0?'var(--green)':'var(--red)';
+  box.style.display='block';
+  document.getElementById('vt-preview-text').innerHTML=
+    `💰 Total a cobrar: <b style="color:var(--green)">${$m(total,inv.moneda)}</b> &nbsp;·&nbsp;
+    Resultado: <b style="color:${color}">${ganancia>=0?'+':''}${$m(Math.abs(ganancia),inv.moneda)} (${inv.precioCompra>0?((ganancia/(inv.precioCompra*cant))*100).toFixed(1):0}%)</b><br>
+    <span style="font-size:12px;color:var(--text-sub)">Te quedan ${inv.cantidad-cant} unidades después de esta venta</span>`;
+}
+
+function saveVenta(){
+  const invId=document.getElementById('vt-inv').value;
+  const cant=parseFloat(document.getElementById('vt-cantidad').value)||0;
+  const precio=parseFloat(document.getElementById('vt-precio').value)||0;
+  const fecha=document.getElementById('vt-fecha').value;
+  if(!invId){alert('Seleccioná una inversión.');return;}
+  if(!cant||cant<=0){alert('Ingresá la cantidad a vender.');return;}
+  if(!precio||precio<=0){alert('Ingresá el precio de venta.');return;}
+  const inv=S.inversiones.find(x=>x.id===invId);
+  if(!inv){alert('Inversión no encontrada.');return;}
+  if(cant>inv.cantidad){alert(`No podés vender más de ${inv.cantidad} unidades.`);return;}
+  const total=cant*precio;
+  const ganancia=(precio-inv.precioCompra)*cant;
+  // Registrar en historial de ventas
+  if(!S.ventas) S.ventas=[];
+  S.ventas.push({
+    id:uid(), fecha, invId,
+    nombre:inv.nombre, tipo:inv.tipo, moneda:inv.moneda,
+    cantidad:cant, precioCompra:inv.precioCompra,
+    precioVenta:precio, total, ganancia
+  });
+  // Actualizar portfolio
+  inv.cantidad=inv.cantidad-cant;
+  inv.invertido=inv.cantidad*inv.precioCompra;
+  inv.actual=inv.cantidad*inv.precioActual;
+  inv.fechaActualizacion=new Date().toISOString().split('T')[0];
+  // Registrar como ingreso automáticamente
+  S.ingresos.push({
+    id:uid(), fecha,
+    categoria:'Venta de activos',
+    descripcion:`Venta ${cant} ${inv.nombre} @ ${$m(precio,inv.moneda)}/u`,
+    monto:total, moneda:inv.moneda
+  });
+  // Si quedaron 0 unidades, preguntar si eliminar
+  if(inv.cantidad<=0){
+    S.inversiones=S.inversiones.filter(x=>x.id!==invId);
+    alert(`Vendiste todas las unidades de ${inv.nombre}. Se eliminó del portfolio activo pero queda en el historial.`);
+  }
+  save(); closeM('m-venta'); clr(['vt-cantidad','vt-precio']);
+  renderAll();
+}
+
+function venderAcciones(id){ abrirVenta(id); }
+
+
+function renderHistorialVentas(){
+  if(!S.ventas) S.ventas=[];
+  const tb=document.getElementById('t-historial-ventas');
+  const vtTotal=document.getElementById('ventas-total');
+  if(!tb)return;
+  const totalGanancia=S.ventas.reduce((s,v)=>s+(v.ganancia||0),0);
+  if(vtTotal) vtTotal.textContent=S.ventas.length?`${S.ventas.length} operación${S.ventas.length!==1?'es':''} · Resultado acum: ${totalGanancia>=0?'+':''}${$m(Math.abs(totalGanancia))}`:'';
+  if(!S.ventas.length){
+    tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div>Sin ventas registradas aún.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML=[...S.ventas].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(v=>{
+    const ganColor=v.ganancia>=0?'var(--green)':'var(--red)';
+    return`<tr>
+      <td data-label="Fecha"><b>${fmt(v.fecha)}</b></td>
+      <td data-label="Inversión"><b>${v.nombre}</b></td>
+      <td data-label="Tipo"><span class="tag" style="background:var(--accent-dim);color:var(--accent)">${v.tipo}</span></td>
+      <td data-label="Cantidad">${v.cantidad} u.</td>
+      <td data-label="Precio venta">${$m(v.precioVenta,v.moneda)}/u</td>
+      <td data-label="Total cobrado"><b style="color:var(--green)">${$m(v.total,v.moneda)}</b></td>
+      <td data-label="Resultado"><b style="color:${ganColor}">${v.ganancia>=0?'+':''}${$m(Math.abs(v.ganancia),v.moneda)}</b></td>
+    </tr>`;
+  }).join('');
+}
+
 function editInversion(id){
   const inv=S.inversiones.find(x=>x.id===id);
   if(!inv)return;
-  const newVal=prompt(`Actualizar "${inv.nombre}"\nValor actual: ${$m(inv.actual,inv.moneda)}\n\nIngresá el nuevo valor actual:`);
-  if(!newVal)return;
-  const val=parseFloat(newVal.replace(',','.'));
+  const esUnidades=inv.modo==='unidades'||inv.cantidad;
+  const msg=esUnidades
+    ?`Actualizar "${inv.nombre}"\nCantidad: ${inv.cantidad} unidades\nPrecio actual: ${$m(inv.precioActual,inv.moneda)}/u\n\nIngresá el NUEVO precio por unidad:`
+    :`Actualizar "${inv.nombre}"\nValor actual: ${$m(inv.actual,inv.moneda)}\n\nIngresá el nuevo valor total:`;
+  const newVal=prompt(msg);
+  if(newVal===null)return;
+  const val=parseFloat(newVal);
   if(isNaN(val)||val<0){alert('Valor inválido.');return;}
-  inv.actual=val;
+  if(esUnidades){inv.precioActual=val;inv.actual=inv.cantidad*val;}
+  else{inv.actual=val;}
   inv.fechaActualizacion=new Date().toISOString().split('T')[0];
   save();renderAll();
 }
 
-// ══════════════════════════════════════════
-// BALANCE
-// ══════════════════════════════════════════
+
 function renderBalance(){
   ensureArrays();
   buildMonthSelector('bal-mes',[...S.ingresos,...S.gastos],renderBalance);
@@ -970,6 +1200,44 @@ function renderBalance(){
 }
 
 // ══════════════════════════════════════════
+
+// ── VENTA DE INVERSIONES ──
+function venderInversion(id){
+  const inv=S.inversiones.find(x=>x.id===id);
+  if(!inv)return;
+  const cantDisp=inv.cantidad||null;
+  const label=cantDisp
+    ?`"${inv.nombre}"\nCantidad disponible: ${cantDisp} unidades\nPrecio actual: ${$m(inv.precioUnit||0,inv.moneda)}\n\n¿Cuántas unidades vendés?`
+    :`"${inv.nombre}"\nValor actual: ${$m(inv.actual,inv.moneda)}\n\n¿Cuánto vendés (monto total)?`;
+  const val1=prompt(label);
+  if(!val1)return;
+  const cantVenta=parseFloat(val1.replace(',','.'));
+  if(isNaN(cantVenta)||cantVenta<=0){alert('Cantidad inválida.');return;}
+  if(cantDisp&&cantVenta>cantDisp){alert(`Solo tenés ${cantDisp} unidades disponibles.`);return;}
+  let precioVenta=inv.precioUnit||0;
+  if(cantDisp){
+    const val2=prompt(`Precio de venta por unidad:\n(Precio actual: ${$m(inv.precioUnit||0,inv.moneda)})\n\nConfirmá o ingresá el precio de venta:`);
+    if(!val2)return;
+    precioVenta=parseFloat(val2.replace(',','.'))||inv.precioUnit||0;
+  }
+  const montoVenta=cantDisp?cantVenta*precioVenta:cantVenta;
+  const fecha=new Date().toISOString().split('T')[0];
+  S.ventas.push({id:uid(),fecha,invId:id,nombre:inv.nombre,tipo:inv.tipo,cantidad:cantDisp?cantVenta:null,precioVenta:cantDisp?precioVenta:null,montoTotal:montoVenta,moneda:inv.moneda});
+  if(cantDisp){
+    inv.cantidad=cantDisp-cantVenta;
+    inv.actual=inv.cantidad*precioVenta;
+    if(inv.cantidad<=0){
+      if(confirm('Vendiste todas las unidades. ¿Eliminar esta inversión del portfolio?')){
+        S.inversiones=S.inversiones.filter(x=>x.id!==id);
+      } else {inv.cantidad=0;inv.actual=0;}
+    }
+  } else {
+    inv.actual=Math.max(0,inv.actual-montoVenta);
+  }
+  save();renderAll();
+  alert(`✅ Venta registrada\n${inv.nombre}\nMonto: ${$m(montoVenta,inv.moneda)}\nFecha: ${fecha}`);
+}
+
 // METAS Y AHORRO
 // ══════════════════════════════════════════
 function saveMeta(){
