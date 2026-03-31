@@ -503,8 +503,8 @@ textarea{resize:vertical;min-height:70px;}
           <option value="USD">🇺🇸 Dólares (USD)</option>
         </select>
       </div>
-      <div class="fg"><label>Monto invertido</label><input type="number" id="inv-invertido" placeholder="0"></div>
-      <div class="fg"><label>Valor actual</label><input type="number" id="inv-actual-val" placeholder="0"></div>
+      <div class="fg"><label>Monto invertido</label><input type="number" id="inv-monto-input" placeholder="0"></div>
+      <div class="fg"><label>Valor actual</label><input type="number" id="inv-actual-input" placeholder="0"></div>
       <div class="fg full"><label>Notas (broker, vencimiento, etc.)</label><input id="inv-notas" placeholder="Ej: IOL, vence 15/04, BYMA..."></div>
     </div>
     <div class="modal-actions">
@@ -787,12 +787,12 @@ function renderGastos(){
 // ══════════════════════════════════════════
 function saveInversion(){
   const nombre=document.getElementById('inv-nombre').value.trim();
-  const invertido=parseFloat(document.getElementById('inv-invertido').value)||0;
-  const actual=parseFloat(document.getElementById('inv-actual-val').value)||0;
+  const invertido=parseFloat(document.getElementById('inv-monto-input').value)||0;
+  const actual=parseFloat(document.getElementById('inv-actual-input').value)||0;
   if(!nombre){alert('Ingresá el nombre.');return;}
   if(!invertido){alert('Ingresá el monto invertido.');return;}
   S.inversiones.push({id:uid(),nombre,tipo:document.getElementById('inv-tipo').value,fecha:document.getElementById('inv-fecha').value,moneda:document.getElementById('inv-moneda').value,invertido,actual:actual||invertido,notas:document.getElementById('inv-notas').value});
-  save();closeM('m-inversion');clr(['inv-nombre','inv-invertido','inv-actual-val','inv-notas']);renderAll();
+  save();closeM('m-inversion');clr(['inv-nombre','inv-monto-input','inv-actual-input','inv-notas']);renderAll();
 }
 
 function renderInversiones(){
