@@ -350,12 +350,23 @@ textarea{resize:vertical;min-height:70px;}
   <div class="tcard" style="margin-top:20px">
     <div class="tcard-header">
       <div class="tcard-title">📋 Historial de ventas</div>
-      <span id="ventas-total" style="font-size:13px;color:var(--green);font-weight:700"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="ventas-total" style="font-size:13px;color:var(--green);font-weight:700"></span>
+        <button class="btn btn-ghost btn-sm" onclick="togglePapelera()" id="btn-papelera" style="color:var(--orange);border-color:var(--orange)">🗑 Ver papelera</button>
+      </div>
     </div>
     <div style="overflow-x:auto">
-      <table><thead><tr><th>Fecha</th><th>Inversión</th><th>Tipo</th><th>Cantidad vendida</th><th>Precio venta</th><th>Total cobrado</th><th>Ganancia/Pérdida</th></tr></thead>
+      <table><thead><tr><th>Fecha</th><th>Inversión</th><th>Tipo</th><th>Cantidad</th><th>Precio venta</th><th>Total cobrado</th><th>Resultado</th><th></th></tr></thead>
       <tbody id="t-historial-ventas"></tbody></table>
-      <tbody id="t-ventas"></tbody></table>
+    </div>
+    <!-- Papelera -->
+    <div id="papelera-section" style="display:none;border-top:2px dashed var(--border);margin-top:16px;padding:16px 20px">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);font-weight:700;margin-bottom:12px">🗑 Papelera — registros eliminados</div>
+      <div style="overflow-x:auto">
+        <table><thead><tr><th>Fecha</th><th>Inversión</th><th>Tipo</th><th>Cantidad</th><th>Total</th><th>Resultado</th><th></th></tr></thead>
+        <tbody id="t-papelera-ventas"></tbody></table>
+      </div>
+      <button class="btn btn-danger btn-sm" style="margin-top:12px" onclick="vaciarPapelera()">🗑 Vaciar papelera definitivamente</button>
     </div>
   </div>
 </div>
@@ -620,7 +631,7 @@ function showSync(msg,color){
 // ══════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════
-let S={ingresos:[],gastos:[],inversiones:[],metas:[],ventas:[]};
+let S={ingresos:[],gastos:[],inversiones:[],metas:[],ventas:[],ventasEliminadas:[]};
 
 function ensureArrays(){
   S.ingresos=S.ingresos||[];
@@ -628,7 +639,7 @@ function ensureArrays(){
   S.inversiones=S.inversiones||[];
   S.metas=S.metas||[];
   S.ventas=S.ventas||[];
-  S.ventas=S.ventas||[];
+  S.ventasEliminadas=S.ventasEliminadas||[];
   // Migrate old inversiones without cantidad/precioCompra
   S.inversiones.forEach(inv=>{
     if(!inv.cantidad) inv.cantidad=1;
@@ -1102,30 +1113,97 @@ function saveVenta(){
 function venderAcciones(id){ abrirVenta(id); }
 
 
+let mostrarPapelera=false;
+
+function togglePapelera(){
+  mostrarPapelera=!mostrarPapelera;
+  const sec=document.getElementById('papelera-section');
+  const btn=document.getElementById('btn-papelera');
+  if(sec) sec.style.display=mostrarPapelera?'block':'none';
+  if(btn) btn.textContent=mostrarPapelera?'✕ Ocultar papelera':'🗑 Ver papelera';
+  renderHistorialVentas();
+}
+
+function moverPapelera(id){
+  if(!confirm('¿Mover esta venta a la papelera?\nPodés restaurarla cuando quieras.'))return;
+  if(!S.ventasEliminadas) S.ventasEliminadas=[];
+  const venta=S.ventas.find(v=>v.id===id);
+  if(!venta)return;
+  venta.fechaEliminacion=new Date().toISOString().split('T')[0];
+  S.ventasEliminadas.push(venta);
+  S.ventas=S.ventas.filter(v=>v.id!==id);
+  save();renderHistorialVentas();
+}
+
+function restaurarVenta(id){
+  if(!S.ventasEliminadas)return;
+  const venta=S.ventasEliminadas.find(v=>v.id===id);
+  if(!venta)return;
+  delete venta.fechaEliminacion;
+  S.ventas.push(venta);
+  S.ventasEliminadas=S.ventasEliminadas.filter(v=>v.id!==id);
+  save();renderHistorialVentas();
+}
+
+function vaciarPapelera(){
+  if(!S.ventasEliminadas||!S.ventasEliminadas.length){alert('La papelera ya está vacía.');return;}
+  if(!confirm(`¿Eliminar definitivamente ${S.ventasEliminadas.length} registro${S.ventasEliminadas.length!==1?'s':''}?\n\nEsta acción NO se puede deshacer.`))return;
+  S.ventasEliminadas=[];
+  save();renderHistorialVentas();
+}
+
 function renderHistorialVentas(){
   if(!S.ventas) S.ventas=[];
+  if(!S.ventasEliminadas) S.ventasEliminadas=[];
   const tb=document.getElementById('t-historial-ventas');
   const vtTotal=document.getElementById('ventas-total');
   if(!tb)return;
+  // Totales activos
   const totalGanancia=S.ventas.reduce((s,v)=>s+(v.ganancia||0),0);
-  if(vtTotal) vtTotal.textContent=S.ventas.length?`${S.ventas.length} operación${S.ventas.length!==1?'es':''} · Resultado acum: ${totalGanancia>=0?'+':''}${$m(Math.abs(totalGanancia))}`:'';
+  const totalCobrado=S.ventas.reduce((s,v)=>s+(v.total||0),0);
+  if(vtTotal) vtTotal.textContent=S.ventas.length
+    ?`${S.ventas.length} venta${S.ventas.length!==1?'s':''} · Cobrado: ${$m(totalCobrado)} · Resultado: ${totalGanancia>=0?'+':''}${$m(Math.abs(totalGanancia))}`
+    :'';
+  // Historial activo
   if(!S.ventas.length){
-    tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div>Sin ventas registradas aún.</div></td></tr>`;
-    return;
+    tb.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="empty-icon">📋</div>Sin ventas registradas aún. Las que eliminés van a la papelera y se pueden restaurar.</div></td></tr>`;
+  } else {
+    tb.innerHTML=[...S.ventas].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(v=>{
+      const gan=v.ganancia||0;
+      const ganColor=gan>=0?'var(--green)':'var(--red)';
+      return`<tr>
+        <td data-label="Fecha"><b>${fmt(v.fecha)}</b></td>
+        <td data-label="Inversión"><b>${v.nombre}</b></td>
+        <td data-label="Tipo"><span class="tag" style="background:var(--accent-dim);color:var(--accent);font-size:11px">${v.tipo}</span></td>
+        <td data-label="Cantidad">${v.cantidad?v.cantidad+' u.':'—'}</td>
+        <td data-label="Precio venta">${v.precioVenta?$m(v.precioVenta,v.moneda)+'/u':'—'}</td>
+        <td data-label="Total cobrado"><b style="color:var(--green)">${$m(v.total||0,v.moneda)}</b></td>
+        <td data-label="Resultado"><b style="color:${ganColor}">${gan>=0?'+':''}${$m(Math.abs(gan),v.moneda)}</b></td>
+        <td><button class="btn btn-danger btn-xs" onclick="moverPapelera('${v.id}')" title="Mover a papelera">🗑</button></td>
+      </tr>`;
+    }).join('');
   }
-  tb.innerHTML=[...S.ventas].sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(v=>{
-    const ganColor=v.ganancia>=0?'var(--green)':'var(--red)';
-    return`<tr>
-      <td data-label="Fecha"><b>${fmt(v.fecha)}</b></td>
-      <td data-label="Inversión"><b>${v.nombre}</b></td>
-      <td data-label="Tipo"><span class="tag" style="background:var(--accent-dim);color:var(--accent)">${v.tipo}</span></td>
-      <td data-label="Cantidad">${v.cantidad} u.</td>
-      <td data-label="Precio venta">${$m(v.precioVenta,v.moneda)}/u</td>
-      <td data-label="Total cobrado"><b style="color:var(--green)">${$m(v.total,v.moneda)}</b></td>
-      <td data-label="Resultado"><b style="color:${ganColor}">${v.ganancia>=0?'+':''}${$m(Math.abs(v.ganancia),v.moneda)}</b></td>
-    </tr>`;
-  }).join('');
+  // Papelera
+  const tbp=document.getElementById('t-papelera-ventas');
+  if(!tbp)return;
+  if(!S.ventasEliminadas.length){
+    tbp.innerHTML=`<tr><td colspan="7"><div class="empty" style="padding:16px"><div class="empty-icon">✅</div>Papelera vacía.</div></td></tr>`;
+  } else {
+    tbp.innerHTML=[...S.ventasEliminadas].sort((a,b)=>(b.fechaEliminacion||'').localeCompare(a.fechaEliminacion||'')).map(v=>{
+      const gan=v.ganancia||0;
+      return`<tr style="opacity:.65">
+        <td data-label="Fecha">${fmt(v.fecha)}</td>
+        <td data-label="Inversión"><b>${v.nombre}</b></td>
+        <td data-label="Tipo" style="font-size:12px;color:var(--text-sub)">${v.tipo}</td>
+        <td data-label="Cantidad">${v.cantidad?v.cantidad+' u.':'—'}</td>
+        <td data-label="Total"><b>${$m(v.total||0,v.moneda)}</b></td>
+        <td data-label="Resultado" style="color:${gan>=0?'var(--green)':'var(--red)'}">${gan>=0?'+':''}${$m(Math.abs(gan),v.moneda)}</td>
+        <td><button class="btn btn-green btn-xs" onclick="restaurarVenta('${v.id}')" title="Restaurar">↩ Restaurar</button></td>
+      </tr>`;
+    }).join('');
+  }
 }
+
 
 function editInversion(id){
   const inv=S.inversiones.find(x=>x.id===id);
