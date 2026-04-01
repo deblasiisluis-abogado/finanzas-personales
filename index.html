@@ -7,15 +7,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f0f2f5;--surface:#ffffff;--surface2:#f7f8fa;--surface3:#eceef2;
-  --border:#dde0e8;--accent:#2563a8;--accent-lt:#3a7bd5;--accent-dim:rgba(37,99,168,.1);
-  --text:#1a1d26;--text-sub:#5a6275;--text-dim:#9098aa;
-  --green:#1a7a42;--green-dim:rgba(26,122,66,.12);
-  --red:#c0392b;--red-dim:rgba(192,57,43,.12);
-  --orange:#b8620a;--orange-dim:rgba(184,98,10,.12);
-  --purple:#6c3ea6;--purple-dim:rgba(108,62,166,.12);
-  --teal:#0e7a72;--teal-dim:rgba(14,122,114,.12);
-  --radius:12px;--shadow:0 2px 16px rgba(0,0,0,.08);
+  --bg:#1e2130;--surface:#252a3a;--surface2:#2e3446;--surface3:#373d52;
+  --border:#424a62;--accent:#5a9fe0;--accent-lt:#6ab0f0;--accent-dim:rgba(90,159,224,.18);
+  --text:#eceef8;--text-sub:#9aa2bc;--text-dim:#606880;
+  --green:#45cc7a;--green-dim:rgba(69,204,122,.16);
+  --red:#e86060;--red-dim:rgba(232,96,96,.16);
+  --orange:#e8a048;--orange-dim:rgba(232,160,72,.16);
+  --purple:#a87ae8;--purple-dim:rgba(168,122,232,.16);
+  --teal:#38d4c8;--teal-dim:rgba(56,212,200,.16);
+  --radius:12px;--shadow:0 4px 24px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);font-size:15px;}
@@ -115,7 +115,7 @@ tbody tr:hover{background:rgba(37,99,168,.03);}
 label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-sub);font-weight:600;}
 input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;outline:none;transition:border-color .15s;width:100%;}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);}
-select option{background:#fff;color:var(--text);}
+select option{background:#252a3a;color:#eceef8;}
 textarea{resize:vertical;min-height:70px;}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
 
@@ -159,7 +159,7 @@ textarea{resize:vertical;min-height:70px;}
 
 /* LOGIN */
 #login-screen{display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;}
-#login-screen.visible{display:flex;}
+#login-screen.visible{display:flex;background:var(--bg);}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.12);}
 .login-logo{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--accent);text-align:center;margin-bottom:4px;}
 .login-sub{text-align:center;font-size:12px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:28px;}
